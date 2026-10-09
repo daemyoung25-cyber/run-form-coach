@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>러닝 자세 코치</title>
+<meta name="description" content="옆모습 러닝 영상으로 케이던스·착지·상체 기울기를 분석하는 웹앱">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: one mobile-first column; the camera stage is the hero, results stack below as a coaching report */
+:root{
+  --bg:#F2F4F7; --surface:#FFFFFF; --surface-2:#E8ECF1; --ink:#121925; --muted:#5A6476; --line:#D6DCE4;
+  --accent:#E5482B; --accent-soft:#FBE3DC; --accent-ink:#FFFFFF;
+  --good:#1D8657; --good-soft:#DCF1E6; --warn:#A86F00; --warn-soft:#F7EBCB; --bad:#C93131; --bad-soft:#F8DDDD;
+  --stage:#0B0F15;
+  --f-display:"Archivo","IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0D121A; --surface:#151C27; --surface-2:#1D2633; --ink:#E7ECF3; --muted:#97A1B2; --line:#283244;
+  --accent:#FF6448; --accent-soft:#3A1E19; --accent-ink:#1A0B07;
+  --good:#3DC386; --good-soft:#15301F; --warn:#F0B33A; --warn-soft:#33280F; --bad:#FF6E6E; --bad-soft:#3A1A1C;
+  --stage:#05080C; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D121A; --surface:#151C27; --surface-2:#1D2633; --ink:#E7ECF3; --muted:#97A1B2; --line:#283244;
+  --accent:#FF6448; --accent-soft:#3A1E19; --accent-ink:#1A0B07;
+  --good:#3DC386; --good-soft:#15301F; --warn:#F0B33A; --warn-soft:#33280F; --bad:#FF6E6E; --bad-soft:#3A1A1C;
+  --stage:#05080C; color-scheme:dark}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 var(--f-body);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+.wrap{max-width:720px;margin:0 auto;padding-inline:16px;padding-block:20px 56px;display:grid;gap:18px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.25}
+.num{font-family:var(--f-display);font-stretch:72%;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* header */
+.top{display:grid;gap:4px}
+.brand{display:flex;align-items:center;gap:10px}
+.mark{width:30px;height:30px;border-radius:7px;flex:none;background:repeating-linear-gradient(90deg,var(--accent) 0 5px,transparent 5px 8px);border:2px solid var(--accent)}
+.top h1{font-size:1.6rem;font-weight:800;font-stretch:80%}
+.top p{margin:0;color:var(--muted)}
+
+/* profile */
+.profile{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.field{display:grid;gap:4px;min-width:0}
+.field label{font-size:.78rem;color:var(--muted);letter-spacing:.02em}
+.field input,.field select{width:100%;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+@media (max-width:480px){.profile{grid-template-columns:1fr 1fr}.profile .field:last-child{grid-column:1/-1}}
+
+/* tabs */
+.tabs{display:flex;gap:4px;padding:4px;background:var(--surface-2);border-radius:12px}
+.tabs button{flex:1;border:0;background:transparent;padding:9px 6px;border-radius:9px;font-weight:600;color:var(--muted);cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+
+/* camera stage */
+.stage{position:relative;height:min(68vh,560px);background:var(--stage);border-radius:14px;overflow:hidden;border:3px solid transparent;transition:border-color .2s}
+.stage[data-ready="good"]{border-color:var(--good)}
+.stage[data-ready="warn"]{border-color:var(--warn)}
+.stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.stage.mirror video,.stage.mirror canvas{transform:scaleX(-1)}
+.stage .empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#C9D1DC;padding:24px}
+.stage .empty svg{width:120px;height:120px;opacity:.85}
+.chips{position:absolute;left:8px;right:8px;top:8px;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
+.chip{font-size:.78rem;font-weight:600;padding:4px 9px;border-radius:999px;background:rgba(10,14,20,.72);color:#E9EEF5;display:inline-flex;align-items:center;gap:6px}
+.chip::before{content:"";width:8px;height:8px;border-radius:50%;background:#8893A3}
+.chip[data-s="good"]::before{background:#3DC386}
+.chip[data-s="warn"]::before{background:#F0B33A}
+.chip[data-s="bad"]::before{background:#FF6E6E}
+.count{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;color:#fff;font-size:7rem;text-shadow:0 4px 24px rgba(0,0,0,.6)}
+.count.rec{place-items:end center;font-size:1.4rem;padding-bottom:16px}
+.count.rec span{background:#D62B2B;padding:4px 14px;border-radius:999px}
+.hint{margin:0;font-weight:600;min-height:1.6em}
+.hint[data-s="good"]{color:var(--good)}
+.hint[data-s="warn"]{color:var(--warn)}
+.hint[data-s="bad"]{color:var(--bad)}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.controls .field{flex:1 1 110px}
+.btn{border:1px solid var(--line);background:var(--surface);padding:11px 16px;border-radius:11px;font-weight:600;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.rec{background:#D62B2B;border-color:#D62B2B;color:#fff}
+.btn:disabled{opacity:.5;cursor:default}
+.btn-row{display:flex;flex-wrap:wrap;gap:8px}
+.btn-row .btn{flex:1 1 140px}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+.guide h3{font-size:1rem;margin-bottom:8px}
+.guide ol{margin:0;padding-left:1.2em;display:grid;gap:4px;color:var(--muted)}
+.guide b{color:var(--ink);font-weight:600}
+
+/* upload */
+.drop{display:grid;gap:10px;place-items:center;text-align:center;padding:32px 16px;border:2px dashed var(--line);border-radius:14px;background:var(--surface);cursor:pointer}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop strong{font-size:1.05rem}
+.drop span{color:var(--muted);font-size:.9rem}
+.note{color:var(--muted);font-size:.88rem;margin:0}
+
+/* progress */
+.progress{display:grid;gap:8px}
+.bar{height:10px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.error{background:var(--bad-soft);color:var(--bad);border-radius:12px;padding:12px 14px;font-weight:600}
+
+/* results */
+.results{display:grid;gap:16px}
+.r-head{display:flex;gap:16px;align-items:center}
+.ring{position:relative;width:96px;height:96px;flex:none}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .num{position:absolute;inset:0;display:grid;place-items:center;font-size:2.1rem}
+.ring small{position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:.68rem;color:var(--muted)}
+.r-head h2{font-size:1.35rem}
+.r-head p{margin:4px 0 0;color:var(--muted)}
+.badge{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.04em;padding:2px 8px;border-radius:6px;background:var(--accent-soft);color:var(--accent);vertical-align:middle;margin-left:6px}
+.focus{display:grid;gap:10px}
+.focus h3{font-size:1rem}
+.fix{display:grid;gap:4px;padding:12px 14px;border-radius:12px;background:var(--surface-2)}
+.fix b{font-size:.98rem}
+.fix p{margin:0}
+.fix .drill{font-size:.88rem;color:var(--muted)}
+.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (max-width:520px){.metrics{grid-template-columns:1fr}}
+.metric{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:8px;min-width:0}
+.m-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.m-label{font-size:.85rem;color:var(--muted)}
+.m-val{font-size:2rem;line-height:1.1}
+.m-val small{font-size:.9rem;font-family:var(--f-body);font-weight:500;color:var(--muted);margin-left:3px}
+.pill{font-size:.74rem;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.pill[data-s="good"]{background:var(--good-soft);color:var(--good)}
+.pill[data-s="warn"]{background:var(--warn-soft);color:var(--warn)}
+.pill[data-s="bad"]{background:var(--bad-soft);color:var(--bad)}
+.pill[data-s="info"]{background:var(--surface-2);color:var(--muted)}
+.range{position:relative;height:8px;border-radius:99px;background:var(--surface-2)}
+.range .band{position:absolute;top:0;bottom:0;background:var(--good-soft);border-left:2px solid var(--good);border-right:2px solid var(--good)}
+.range .dot{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--ink);border:2px solid var(--surface)}
+.range-lbl{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:-4px}
+.m-sub{font-size:.85rem;color:var(--muted);margin:0}
+.m-tip{font-size:.9rem;margin:0}
+.delta{font-size:.78rem;font-weight:600;color:var(--muted)}
+.thumbs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:520px){.thumbs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.thumbs figure{margin:0;display:grid;gap:4px;min-width:0}
+.thumbs canvas{width:100%;height:auto;border-radius:10px;background:var(--stage)}
+.thumbs figcaption{font-size:.78rem;color:var(--muted);text-align:center}
+.replay{position:relative;background:var(--stage);border-radius:14px;overflow:hidden;height:min(60vh,480px)}
+.replay video,.replay canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.replay canvas{pointer-events:none}
+.quality{display:grid;gap:6px;margin:0;padding-left:1.1em;color:var(--muted);font-size:.9rem}
+details.how summary{cursor:pointer;font-weight:600}
+details.how div{color:var(--muted);font-size:.9rem;display:grid;gap:6px;margin-top:8px}
+.sec-title{font-size:1.05rem}
+
+/* history */
+.tbl-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+table{border-collapse:collapse;width:100%;font-size:.9rem;font-variant-numeric:tabular-nums}
+th,td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-size:.76rem;color:var(--muted);font-weight:600;letter-spacing:.02em}
+tr:last-child td{border-bottom:0}
+footer{color:var(--muted);font-size:.82rem;line-height:1.6}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="top">
+    <div class="brand"><span class="mark" aria-hidden="true"></span><h1>러닝 자세 코치</h1></div>
+    <p>옆모습 10초 영상으로 케이던스, 착지 위치, 무릎, 상체 기울기를 분석합니다.</p>
+  </header>
+
+  <section class="profile" aria-label="내 정보">
+    <div class="field"><label for="height">키 (cm)</label><input id="height" type="number" inputmode="numeric" min="120" max="220" placeholder="예: 172"></div>
+    <div class="field"><label for="speed">러닝머신 속도 (km/h)</label><input id="speed" type="number" inputmode="decimal" min="3" max="25" step="0.1" placeholder="선택"></div>
+    <div class="field"><label for="slowmo">영상 속도</label>
+      <select id="slowmo"><option value="1">실제 속도</option><option value="0.25">슬로모션 1/4 (120fps)</option><option value="0.125">슬로모션 1/8 (240fps)</option></select></div>
+  </section>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="t-rec" aria-selected="true" data-tab="rec">바로 촬영</button>
+    <button role="tab" id="t-upload" aria-selected="false" data-tab="upload">영상 올리기</button>
+    <button role="tab" id="t-history" aria-selected="false" data-tab="history">기록</button>
+  </nav>
+
+  <section id="tab-rec" class="tabpane" style="display:grid;gap:12px">
+    <div class="stage" id="stage">
+      <video id="cam" playsinline muted></video>
+      <canvas id="camOverlay"></canvas>
+      <div class="empty" id="camEmpty">
+        <div>
+          <svg viewBox="0 0 120 120" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="66" cy="18" r="9"/><path d="M62 30 54 60l16 14 6 30"/><path d="M54 60 40 80 22 84"/><path d="M60 38l18 8 12-6"/><path d="M60 38 44 46 36 60"/><path d="M8 110h104" stroke-dasharray="6 6"/>
+          </svg>
+          <p>카메라를 켜면 몸 전체, 옆모습, 수평을<br>실시간으로 점검합니다.</p>
+        </div>
+      </div>
+      <div class="chips" id="chips" hidden></div>
+      <div class="count" id="count" hidden></div>
+    </div>
+    <p class="hint" id="hint" aria-live="polite"></p>
+    <div class="controls">
+      <div class="field"><label for="countSel">시작 전 대기</label><select id="countSel"><option value="5">5초</option><option value="10" selected>10초</option><option value="15">15초</option></select></div>
+      <div class="field"><label for="durSel">녹화 길이</label><select id="durSel"><option value="10">10초</option><option value="15" selected>15초</option><option value="20">20초</option></select></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn primary" id="camBtn">카메라 켜기</button>
+      <button class="btn" id="flipBtn" disabled>전면/후면 전환</button>
+      <button class="btn rec" id="recBtn" disabled>녹화 시작</button>
+    </div>
+    <div class="card guide">
+      <h3>이렇게 찍으면 정확해요</h3>
+      <ol>
+        <li><b>정확히 옆에서</b>: 러닝머신 옆 2~3m, 몸통과 직각이 되게 놓습니다.</li>
+        <li><b>엉덩이 높이</b>: 휴대폰을 세로로 세우고 삼각대나 선반에 고정합니다.</li>
+        <li><b>머리부터 발끝까지</b>: 위 점검 표시가 모두 초록이 되면 녹화를 시작합니다.</li>
+        <li><b>평소 페이스</b>로 1분쯤 달려 몸이 풀린 뒤 찍습니다. 대기 시간 동안 소리로 알려 드려요.</li>
+        <li>전면 카메라로 바꾸면 달리면서 화면을 볼 수 있지만, 후면 카메라가 화질이 더 좋습니다.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="tab-upload" class="tabpane" hidden style="display:grid;gap:12px">
+    <label class="drop" id="drop" for="file">
+      <strong>러닝 영상 선택</strong>
+      <span>옆에서 찍은 5~20초 영상 (mp4, mov, webm)</span>
+      <span class="btn primary" aria-hidden="true">파일 고르기</span>
+    </label>
+    <input id="file" type="file" accept="video/*" hidden>
+    <p class="note">영상은 이 기기 안에서만 분석되고 어디에도 올라가지 않습니다. 슬로모션 영상이면 위의 ‘영상 속도’를 맞춰 주세요. 케이던스가 맞게 계산됩니다.</p>
+  </section>
+
+  <section id="tab-history" class="tabpane" hidden style="display:grid;gap:12px">
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>날짜</th><th>점수</th><th>케이던스</th><th>정강이 각도</th><th>무릎 굽힘</th><th>상체</th><th>상하 움직임</th></tr></thead>
+      <tbody id="histBody"></tbody>
+    </table></div>
+    <p class="note">기록은 이 휴대폰 브라우저에만 저장됩니다.</p>
+    <div><button class="btn" id="clearHist">기록 지우기</button></div>
+  </section>
+
+  <section class="card progress" id="progress" hidden aria-live="polite">
+    <b id="progLabel">분석 준비 중</b>
+    <div class="bar"><i id="progBar"></i></div>
+    <p class="note" id="progNote">자세 인식 모델(약 9MB)을 처음 한 번 내려받습니다.</p>
+  </section>
+  <div class="error" id="err" hidden></div>
+
+  <section class="results" id="results"></section>
+
+  <footer>분석 결과는 2D 영상으로 추정한 참고용 코칭입니다. 통증이나 부상이 있으면 전문가에게 진단을 받으세요. 자세 인식에는 Google MediaPipe를 사용하며, 영상은 기기 밖으로 전송되지 않습니다.</footer>
+</main>
+<video id="anaVideo" playsinline muted style="position:fixed;left:0;bottom:0;width:4px;height:4px;opacity:.01;pointer-events:none"></video>
+<script type="module" src="app.js"></script>
+</body>
+</html>
