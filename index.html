@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#E5482B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="러닝폼">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <title>러닝폼</title>
 <meta name="description" content="옆모습 러닝 영상으로 케이던스·착지·상체 기울기를 분석하는 웹앱">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -162,6 +170,11 @@ th,td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--line);whi
 th:first-child,td:first-child{text-align:left}
 th{font-size:.76rem;color:var(--muted);font-weight:600;letter-spacing:.02em}
 tr:last-child td{border-bottom:0}
+.install{display:flex;gap:12px;align-items:center;padding:12px 14px}
+.install img{width:44px;height:44px;border-radius:11px;flex:none}
+.install div{flex:1;min-width:0;font-size:.9rem}
+.install b{display:block;font-size:.95rem}
+.install .x{border:0;background:transparent;color:var(--muted);font-size:1.3rem;line-height:1;padding:6px;cursor:pointer}
 footer{color:var(--muted);font-size:.82rem;line-height:1.6}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -172,6 +185,13 @@ footer{color:var(--muted);font-size:.82rem;line-height:1.6}
     <div class="brand"><span class="mark" aria-hidden="true"></span><h1>러닝폼</h1></div>
     <p>옆모습 10초 영상으로 케이던스, 착지 위치, 무릎, 상체 기울기를 분석합니다.</p>
   </header>
+
+  <div class="card install" id="install" hidden>
+    <img src="icon-192.png" alt="">
+    <div><b>홈 화면에 러닝폼 추가</b><span id="installText">앱처럼 바로 열 수 있어요.</span></div>
+    <button class="btn primary" id="installBtn" hidden>추가</button>
+    <button class="x" id="installX" aria-label="닫기">×</button>
+  </div>
 
   <section class="profile" aria-label="내 정보">
     <div class="field"><label for="height">키 (cm)</label><input id="height" type="number" inputmode="numeric" min="120" max="220" placeholder="예: 172"></div>
@@ -255,5 +275,26 @@ footer{color:var(--muted);font-size:.82rem;line-height:1.6}
 </main>
 <video id="anaVideo" playsinline muted style="position:fixed;left:0;bottom:0;width:4px;height:4px;opacity:.01;pointer-events:none"></video>
 <script type="module" src="app.js"></script>
+<script>
+(function () {
+  const box = document.getElementById("install"), btn = document.getElementById("installBtn"), txt = document.getElementById("installText");
+  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  let dismissed = false; try { dismissed = localStorage.getItem("rc.installDismissed") === "1"; } catch (e) {}
+  if (standalone || dismissed) return;
+  const ua = navigator.userAgent;
+  const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const inApp = /KAKAOTALK|NAVER|Instagram|FBAN|FBAV|Line//i.test(ua);
+  let deferred = null;
+  if (inApp) { txt.textContent = "카카오톡 같은 앱 안에서는 추가할 수 없어요. 오른쪽 메뉴에서 Safari나 Chrome으로 연 뒤 추가하세요."; box.hidden = false; }
+  else if (ios) { txt.textContent = "Safari 아래쪽 공유 버튼(□↑)을 누르고 ‘홈 화면에 추가’를 고르세요."; box.hidden = false; }
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferred = e; btn.hidden = false; box.hidden = false; });
+  btn.addEventListener("click", async () => { if (!deferred) return; deferred.prompt(); const r = await deferred.userChoice.catch(() => null); deferred = null; if (r && r.outcome === "accepted") box.hidden = true; });
+  window.addEventListener("appinstalled", () => (box.hidden = true));
+  document.getElementById("installX").addEventListener("click", () => { box.hidden = true; try { localStorage.setItem("rc.installDismissed", "1"); } catch (e) {} });
+})();
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+</script>
 </body>
 </html>
